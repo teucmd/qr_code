@@ -1,22 +1,170 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File to QR Converter</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>QR Maker</title>
+
+  <!-- Import map for esm.sh libraries -->
+  <script type="importmap">
+  {
+    "imports": {
+      "qrcode": "https://esm.sh/qrcode@1.5.1"
+    }
+  }
+  </script>
 </head>
-<body>
-    <div class="container">
-        <h1>File to QR Converter</h1>
-        <p>Upload a small file (under 2.5KB) to encode it directly.</p>
-        
-        <input type="file" id="fileInput">
-        <div id="qrcode"></div>
-        <p id="status"></p>
+<body data-theme="dark">
+  <main id="app">
+    <div class="left">
+      <label class="field">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="label">Text / URL</div>
+          <div id="charCaps" style="font-size:12px;color:var(--muted);text-align:right;">
+            <!-- capacities populated by JS -->
+            v1: — chars · v6: — · v10: —
+          </div>
+        </div>
+        <textarea id="text" placeholder="Enter text or URL" rows="4"></textarea>
+        <div id="charCount" style="font-size:12px;color:var(--muted);text-align:right;margin-top:6px;">0 chars</div>
+      </label>
+
+      <div class="row">
+        <label class="field small">
+          <div class="label">Size</div>
+          <input id="size" type="range" min="128" max="1024" step="64" value="512" />
+        </label>
+
+        <label class="field small">
+          <div class="label">Error</div>
+          <select id="ecLevel">
+            <option value="L">L (low)</option>
+            <option value="M" selected>M (mid)</option>
+            <option value="Q">Q (quartile)</option>
+            <option value="H">H (high)</option>
+          </select>
+        </label>
+
+        <div id="ecInfo" class="small-note" style="margin-top:6px;color:var(--muted)">
+          Error correction level helps the QR code recover from damage: L (≈7% recovery), M (≈15%), Q (≈25%), H (≈30%).
+        </div>
+      </div>
+
+      <div class="row">
+        <label class="field small">
+          <div class="label">Foreground</div>
+          <input id="fg" type="color" value="#e6edf3" />
+        </label>
+
+        <label class="field small">
+          <div class="label">Background</div>
+          <input id="bg" type="color" value="#0b1220" />
+        </label>
+      </div>
+
+      <div class="row">
+        <label class="field small">
+          <div class="label">Margin</div>
+          <input id="margin" type="number" min="0" max="40" value="4" />
+        </label>
+
+        <label class="field small">
+          <div class="label">Scale</div>
+          <input id="scale" type="number" min="1" max="16" value="4" />
+        </label>
+      </div>
+
+      <div class="row">
+        <label class="field small">
+          <div class="label">Logo (center)</div>
+          <input id="logoFile" type="file" accept="image/*" />
+        </label>
+
+        <label class="field small">
+          <div class="label">Logo size (%)</div>
+          <input id="logoSize" type="range" min="5" max="40" value="18" />
+        </label>
+      </div>
+
+      <div class="row">
+        <label class="field small">
+          <div class="label">Embed file into QR</div>
+          <input id="embedFile" type="file" accept="*/*" />
+        </label>
+
+        <label class="field small">
+          <div class="label">Embed mode</div>
+          <select id="embedMode">
+            <option value="auto" selected>Auto (data URL)</option>
+            <option value="base64">Base64 (binary)</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="embedInfo" class="small-note" style="margin-top:6px;color:var(--muted)">
+        No file selected to embed. Max for version 6: 300 bytes. Max for version 10: 800 bytes.
+      </div>
+
+      <!-- inline warning removed; modal will show size/version alerts -->
+      <div id="limitWarning" class="small-note" style="margin-top:6px;color:var(--muted);display:none"></div>
+
+      <!-- Modal popup for warnings -->
+      <div id="limitModal" class="modal" aria-hidden="true">
+        <div class="modal-backdrop" id="modalBackdrop"></div>
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <strong id="modalTitle">QR Size Warning</strong>
+            <button id="modalClose" class="modal-close" aria-label="Close">✕</button>
+          </div>
+          <div id="modalMessage" style="margin-top:10px;color:var(--muted);font-size:14px"></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+            <button id="modalOk" style="background:var(--accent);color:white;padding:8px 12px;border-radius:8px;border:0;">OK</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <label class="field small">
+          <div class="label">Logo padding</div>
+          <input id="logoPadding" type="number" min="0" max="20" value="6" />
+        </label>
+
+        <label class="field small">
+          <div class="label">Dark mode</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input id="darkToggle" type="checkbox" />
+            <small style="color:var(--muted)">Off</small>
+          </div>
+        </label>
+      </div>
+
+      <div class="controls">
+        <button id="generate">Generate</button>
+
+        <div style="display:flex;align-items:center;gap:8px">
+          <button id="download" disabled>Download</button>
+          <select id="downloadType" aria-label="Download file type" style="height:44px;border-radius:10px;border:0;padding:8px 10px;background:rgba(255,255,255,0.04);color:var(--accent);min-width:120px;">
+            <option value="" disabled selected>Choose format</option>
+            <option value="image/png">PNG</option>
+            <option value="image/jpeg">JPEG</option>
+            <option value="image/svg+xml">SVG</option>
+          </select>
+        </div>
+
+        <button id="copyBtn">Copy Image</button>
+      </div>
+
+      <div class="small-note">Tip: paste a URL then tap Generate. Upload a small logo to embed (center).</div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="script.js"></script>
+    <div class="right">
+      <div id="previewWrap">
+        <canvas id="qrCanvas" width="512" height="512" aria-label="QR code preview"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="app.js"></script>
 </body>
 </html>
