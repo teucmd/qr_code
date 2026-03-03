@@ -366,7 +366,11 @@ downloadBtn.addEventListener('click', async () => {
   if (!value) return;
 
   const type = (downloadTypeEl && downloadTypeEl.value) ? downloadTypeEl.value : 'image/png';
-  const baseName = (value.match(/[a-z0-9]+/i) || ['qr'])[0];
+  const _d = new Date();
+  const mm = String(_d.getMonth() + 1).padStart(2, '0');
+  const dd = String(_d.getDate()).padStart(2, '0');
+  const yyyy = String(_d.getFullYear());
+  const baseName = `qr_code_${mm}-${dd}-${yyyy}`;
   if (type === 'image/svg+xml') {
     try {
       // create an SVG string using qrcode library
